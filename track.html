@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Order | OvanLo Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap');
+        body { 
+            font-family: 'Kanit', sans-serif; 
+            background: #f1f5f9; 
+            color: #1e293b; 
+        }
+        .status-badge { 
+            @apply px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider; 
+        }
+        /* Animation สำหรับรายการใหม่ */
+        .fade-in-up {
+            animation: fadeInUp 0.4s ease-out forwards;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="py-8 px-4">
+    <div class="max-w-md mx-auto relative">
+        
+        <div class="flex justify-between items-center mb-8">
+            <a href="index.html" class="w-10 h-10 bg-white rounded-full shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 active:scale-90 transition-all">
+                ✕
+            </a>
+            <div class="text-right">
+                <h1 class="text-xl font-black text-slate-800 tracking-tight leading-none">TRACK <span class="text-blue-600">ORDER</span></h1>
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">เช็คสถานะออเดอร์</p>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-[2rem] shadow-sm mb-6 border border-slate-100 flex items-center transition-all focus-within:ring-2 focus-within:ring-blue-500/20">
+            <span class="ml-2 mr-3 text-xl">🔍</span>
+            <input type="text" id="searchInput" oninput="renderOrders()" placeholder="ค้นหาชื่อ หรือ หมายเลขคิว..." class="w-full bg-transparent border-none outline-none font-bold text-slate-600 placeholder:text-slate-300">
+        </div>
+
+        <div id="order-container" class="space-y-4">
+            <div class="text-center py-20 text-slate-400">
+                <div class="animate-spin inline-block w-8 h-8 border-[3px] border-current border-t-transparent text-blue-600 rounded-full mb-4"></div>
+                <p class="text-[10px] font-black uppercase tracking-[0.2em]">กำลังซิงค์ข้อมูลล่าสุด...</p>
+            </div>
+        </div>
+
+        <p class="text-center text-[9px] text-slate-400 mt-12 uppercase font-black tracking-[0.3em]">OvanLo Store • Live Update</p>
+    </div>
+
+    <script>
+        const firebaseConfig = { 
+            apiKey: "AIzaSyAvEPPZeDB60O0mpGhxKEKQXlzyDgUdl1Q", 
+            authDomain: "ovanlo-store.firebaseapp.com", 
+            databaseURL: "https://ovanlo-store-default-rtdb.asia-southeast1.firebasedatabase.app", 
+            projectId: "ovanlo-store", 
+            storageBucket: "ovanlo-store.firebasestorage.app", 
+            messagingSenderId: "579028697785", 
+            appId: "1:579028697785:web:ac3d3b30cb3533753e9168" 
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let allOrders = [];
+
+        // ดึงข้อมูลแบบ Real-time
+        db.ref('orders').on('value', (snapshot) => {
+            allOrders = [];
+            snapshot.forEach((child) => {
+                allOrders.push({ id: child.key, ...child.val() });
+            });
+            // เรียงจากคิวล่าสุดขึ้นก่อน
+            allOrders.reverse();
+            renderOrders();
+        });
+
+        function renderOrders() {
+            const container = document.getElementById('order-container');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            const filtered = allOrders.filter(ord => 
+                ord.customerName.toLowerCase().includes(searchTerm) ||
+                (ord.prefix + String(ord.queueNo).padStart(3, '0')).toLowerCase().includes(searchTerm)
+            );
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white/50 p-12 rounded-[2.5rem] text-center border-2 border-dashed border-slate-200">
+                        <span class="text-4xl block mb-4">👻</span>
+                        <p class="text-slate-400 text-xs font-black uppercase tracking-widest">ไม่พบรายการที่ค้นหา</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map((ord, index) => {
+                let statusClass = "bg-slate-100 text-slate-400"; 
+                let icon = '<span class="text-2xl animate-pulse">⏳</span>';
+                
+                if (ord.status === "กำลังปรุง") {
+                    statusClass = "bg-blue-500 text-white shadow-lg shadow-blue-200";
+                    icon = '<span class="text-2xl animate-bounce block">🔥</span>';
+                } else if (ord.status === "เสร็จแล้ว") {
+                    statusClass = "bg-emerald-500 text-white shadow-lg shadow-emerald-200";
+                    icon = '<span class="text-2xl">✅</span>';
+                }
+
+                return `
+                    <div class="bg-white p-5 rounded-[2.2rem] shadow-sm border border-slate-50 flex justify-between items-center fade-in-up" style="animation-delay: ${index * 0.05}s">
+                        <div>
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="text-xl font-black text-slate-800 tracking-tighter">${ord.prefix}${String(ord.queueNo).padStart(3, '0')}</span>
+                                <span class="status-badge ${statusClass}">${ord.status}</span>
+                            </div>
+                            <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">คุณ ${ord.customerName}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-[9px] text-slate-300 font-bold">${ord.time}</span>
+                                <span class="w-1 h-1 bg-slate-200 rounded-full"></span>
+                                <span class="text-[9px] text-slate-300 font-bold">${ord.items ? ord.items.length : 0} รายการ</span>
+                            </div>
+                        </div>
+                        <div class="bg-slate-50 w-14 h-14 rounded-2xl flex items-center justify-center border border-white shadow-inner">
+                             ${icon}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>

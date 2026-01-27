@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-Order | OvanLo Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap');
+        body { 
+            font-family: 'Kanit', sans-serif; 
+            background: #f8fafc; 
+            color: #1e293b;
+        }
+        .ticket-cut { 
+            clip-path: polygon(0% 0%, 100% 0%, 100% 95%, 98% 97%, 95% 95%, 92% 97%, 89% 95%, 86% 97%, 83% 95%, 80% 97%, 77% 95%, 74% 97%, 71% 95%, 68% 97%, 65% 95%, 62% 97%, 59% 95%, 56% 97%, 53% 95%, 50% 97%, 47% 95%, 44% 97%, 41% 95%, 38% 97%, 35% 95%, 32% 97%, 29% 95%, 26% 97%, 23% 95%, 20% 97%, 17% 95%, 14% 97%, 11% 95%, 8% 97%, 5% 95%, 2% 97%, 0% 95%); 
+        }
+        .minimal-gradient {
+            background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="py-8 px-4 md:py-12">
+
+    <div class="max-w-md mx-auto relative">
+        
+        <div id="nav-header" class="flex justify-between items-center mb-6">
+            <a href="index.html" class="w-10 h-10 bg-white rounded-full shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 active:scale-90 transition-all">
+                ✕
+            </a>
+            <p class="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">OvanLo Pre-order</p>
+            <div class="w-10"></div> 
+        </div>
+
+        <div class="text-center mb-10">
+            <div class="w-24 h-24 bg-white rounded-[2rem] shadow-xl shadow-blue-100 flex items-center justify-center mx-auto mb-4 border border-slate-100 overflow-hidden">
+                <img src="ovanlo_pic-removebg-preview.png" alt="OvanLo" class="w-full h-full object-cover" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3130/3130432.png'">
+            </div>
+            <h1 class="text-2xl font-black tracking-tight text-slate-800">OVANLO <span class="text-blue-600">STORE</span></h1>
+            <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-[0.3em]">Pre-order Service</p>
+        </div>
+
+        <div id="system-closed-msg" class="hidden text-center p-10 bg-white rounded-[2.5rem] shadow-sm border border-slate-100">
+            <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <span class="text-4xl">😴</span>
+            </div>
+            <h2 class="text-xl font-black text-slate-800 mb-2">ปิดรับออเดอร์ชั่วคราว</h2>
+            <p class="text-slate-400 text-sm mb-6">ขณะนี้ทางร้านงดรับออเดอร์ล่วงหน้า<br>แต่สามารถมาสั่งซื้อได้ที่หน้าร้านครับ/ค่ะ</p>
+            <a href="index.html" class="inline-block px-8 py-3 bg-slate-100 text-slate-600 rounded-full font-bold text-xs uppercase tracking-widest">กลับหน้าหลัก</a>
+        </div>
+
+        <div id="order-form" class="space-y-6">
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">ชื่อลูกค้า (Customer Name)</label>
+                <input type="text" id="custName" placeholder="ระบุชื่อเล่นของคุณ" class="w-full p-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-lg text-slate-700">
+            </div>
+            
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-1">เลือกเครื่องดื่ม (Menu)</label>
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="openToppingModal('ไมโล')" class="p-6 bg-slate-50 rounded-[1.8rem] hover:bg-emerald-50 hover:ring-2 hover:ring-emerald-500/20 transition-all active:scale-95 text-center group border border-transparent">
+                        <span class="block text-4xl mb-2 group-hover:scale-110 transition-transform">🥤</span>
+                        <span class="block font-bold text-slate-700">ไมโล</span>
+                        <span class="text-xs font-bold text-emerald-600">30.-</span>
+                    </button>
+                    <button onclick="openToppingModal('โอวัลติน')" class="p-6 bg-slate-50 rounded-[1.8rem] hover:bg-blue-50 hover:ring-2 hover:ring-blue-500/20 transition-all active:scale-95 text-center group border border-transparent">
+                        <span class="block text-4xl mb-2 group-hover:scale-110 transition-transform">🥤</span>
+                        <span class="block font-bold text-slate-700">โอวัลติน</span>
+                        <span class="text-xs font-bold text-blue-600">30.-</span>
+                    </button>
+                </div>
+
+                <div id="cart-section" class="hidden mt-8 pt-8 border-t border-slate-100 space-y-6">
+                    <div id="cart-list" class="space-y-3"></div>
+                    <div class="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">สแกนจ่ายผ่าน QR Code</p>
+                        <img id="dynamic-qr" class="w-44 h-44 mx-auto rounded-2xl shadow-sm border border-white bg-white mb-3" src="">
+                        <p class="text-2xl font-black text-slate-800" id="qr-total-text">0.00 บาท</p>
+                        <div class="mt-6 text-left bg-white p-4 rounded-2xl border border-slate-100">
+                            <label class="text-[9px] font-black text-red-500 uppercase block mb-2 leading-none italic">แนบสลิปเพื่อยืนยันออเดอร์</label>
+                            <input type="file" id="slipInput" accept="image/*" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-slate-900 file:text-white transition cursor-pointer">
+                        </div>
+                    </div>
+                    <div class="pt-2">
+                        <button onclick="confirmOrder()" id="btn-submit" class="w-full minimal-gradient py-5 rounded-2xl text-white font-black text-lg shadow-lg shadow-blue-500/30 hover:brightness-105 active:scale-95 transition-all">ยืนยันการสั่งซื้อ</button>
+                        <p class="text-center text-[9px] text-slate-400 mt-4 uppercase font-bold tracking-widest">ราคารวมทั้งสิ้น: <span id="cart-total" class="text-slate-800">0.-</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="queue-ticket" class="hidden animate-in fade-in zoom-in duration-500">
+            <div class="bg-white ticket-cut shadow-2xl rounded-t-[2.5rem] overflow-hidden pb-12 text-center border-t-4 border-blue-500">
+                <div class="minimal-gradient p-3 text-white font-black text-[9px] uppercase tracking-[0.4em]">Success Order</div>
+                <div class="p-10">
+                    <p class="text-[10px] text-slate-400 font-bold uppercase mb-2">หมายเลขคิวของคุณ</p>
+                    <h1 id="display-id" class="text-7xl font-black text-slate-800 tracking-tighter mb-6">P000</h1>
+                    <div id="display-items" class="text-sm space-y-3 py-6 border-y border-slate-50 my-6 text-left text-slate-500 italic"></div>
+                    <div class="flex justify-between items-center px-2">
+                        <span class="text-xs font-bold text-slate-400">ชำระเงินแล้ว</span>
+                        <span id="display-total" class="text-2xl font-black text-blue-600">0.-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="space-y-3 mt-8">
+                <a href="index.html" class="w-full flex items-center justify-center py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-lg shadow-xl active:scale-95 transition-all">
+                    🏠 กลับหน้าหลัก
+                </a>
+                <button onclick="location.reload()" class="w-full py-4 text-slate-400 font-bold text-sm hover:text-slate-600 transition flex items-center justify-center gap-2">
+                    <span>➕</span> สั่งรายการอื่นเพิ่ม
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="topping-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-4 z-50">
+        <div class="bg-white w-full max-w-sm rounded-t-[2.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300">
+            <div class="p-8 text-center border-b border-slate-50 relative">
+                <button onclick="closeModal()" class="absolute top-6 right-8 text-slate-300 hover:text-slate-500 transition">✕</button>
+                <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <span class="text-3xl">✨</span>
+                </div>
+                <h3 class="text-xl font-black text-slate-800" id="modal-title">ปรับแต่งเมนู</h3>
+            </div>
+            <div class="p-8 space-y-4">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">เพิ่มความอร่อย (Toppings)</p>
+                <div class="space-y-3 max-h-[35vh] overflow-y-auto pr-2 no-scrollbar" id="topping-options">
+                    <label class="flex justify-between items-center p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-emerald-50 transition-all border border-transparent hover:border-emerald-100">
+                        <div class="flex items-center"><input type="checkbox" class="modal-topping w-5 h-5 mr-4 accent-emerald-500" value="โอวัลติน เฟล็ก" data-price="5"><span class="font-bold text-slate-700">โอวัลติน เฟล็ก</span></div>
+                        <span class="text-emerald-600 font-black text-sm">+5.-</span>
+                    </label>
+                    <label class="flex justify-between items-center p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-emerald-50 transition-all border border-transparent hover:border-emerald-100">
+                        <div class="flex items-center"><input type="checkbox" class="modal-topping w-5 h-5 mr-4 accent-emerald-500" value="ซีเรียลไมโล" data-price="5"><span class="font-bold text-slate-700">ซีเรียลไมโล</span></div>
+                        <span class="text-emerald-600 font-black text-sm">+5.-</span>
+                    </label>
+                    <label class="flex justify-between items-center p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-emerald-50 transition-all border border-transparent hover:border-emerald-100">
+                        <div class="flex items-center"><input type="checkbox" class="modal-topping w-5 h-5 mr-4 accent-emerald-500" value="ภูเขาไฟ" data-price="5"><span class="font-bold text-slate-700">ภูเขาไฟ</span></div>
+                        <span class="text-emerald-600 font-black text-sm">+5.-</span>
+                    </label>
+                    <label class="flex justify-between items-center p-4 bg-slate-50 rounded-2xl cursor-pointer hover:bg-emerald-50 transition-all border border-transparent hover:border-emerald-100">
+                        <div class="flex items-center"><input type="checkbox" class="modal-topping w-5 h-5 mr-4 accent-emerald-500" value="วิปปิงครีม" data-price="10"><span class="font-bold text-slate-700">วิปปิงครีม</span></div>
+                        <span class="text-emerald-600 font-black text-sm">+10.-</span>
+                    </label>
+                </div>
+            </div>
+            <div class="px-8 pb-10 pt-2"><button onclick="addToCart()" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all">ตกลง เพิ่มเครื่องดื่ม</button></div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = { 
+            apiKey: "AIzaSyAvEPPZeDB60O0mpGhxKEKQXlzyDgUdl1Q", 
+            authDomain: "ovanlo-store.firebaseapp.com", 
+            databaseURL: "https://ovanlo-store-default-rtdb.asia-southeast1.firebasedatabase.app", 
+            projectId: "ovanlo-store", 
+            storageBucket: "ovanlo-store.firebasestorage.app", 
+            messagingSenderId: "579028697785", 
+            appId: "1:579028697785:web:ac3d3b30cb3533753e9168" 
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const storage = firebase.storage();
+
+        // ระบบตรวจสอบสถานะร้าน
+        db.ref('system_status/preorder_open').on('value', (snap) => {
+            const isOpen = snap.val() !== false;
+            const form = document.getElementById('order-form');
+            const closedMsg = document.getElementById('system-closed-msg');
+            const navHeader = document.getElementById('nav-header');
+            
+            if(!isOpen) {
+                form.classList.add('hidden');
+                closedMsg.classList.remove('hidden');
+                navHeader.classList.remove('hidden'); // ยังแสดงปุ่ม X เพื่อให้กลับหน้าหลักได้
+            } else {
+                closedMsg.classList.add('hidden');
+                if(document.getElementById('queue-ticket').classList.contains('hidden')) {
+                    form.classList.remove('hidden');
+                    navHeader.classList.remove('hidden');
+                }
+            }
+        });
+
+        let cart = []; 
+        let currentDrink = "";
+        const PP_ID = "0944376023";
+
+        function openToppingModal(drink) { 
+            currentDrink = drink; 
+            document.getElementById('modal-title').innerText = drink; 
+            document.getElementById('topping-modal').classList.remove('hidden'); 
+        }
+
+        function closeModal() { 
+            document.querySelectorAll('.modal-topping').forEach(e => e.checked = false); 
+            document.getElementById('topping-modal').classList.add('hidden'); 
+        }
+
+        function addToCart() {
+            const tops = document.querySelectorAll('.modal-topping:checked');
+            let tList = []; let tPrice = 0;
+            tops.forEach(e => { tList.push(e.value); tPrice += parseInt(e.dataset.price); });
+            cart.push({ drink: currentDrink, toppings: tList, price: 30 + tPrice });
+            renderCart(); closeModal();
+        }
+
+        function renderCart() {
+            const list = document.getElementById('cart-list'); 
+            const section = document.getElementById('cart-section');
+            const total = cart.reduce((s, t) => s + t.price, 0);
+
+            if (cart.length > 0) section.classList.remove('hidden');
+            list.innerHTML = cart.map((item, i) => `
+                <div class="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                    <div class="flex-1">
+                        <p class="font-bold text-slate-700 text-sm">${item.drink}</p>
+                        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-wider">${item.toppings.join(', ') || 'Original Flavor'}</p>
+                    </div>
+                    <div class="flex gap-4 items-center">
+                        <span class="font-black text-blue-600">${item.price}.-</span>
+                        <button onclick="removeFromCart(${i})" class="w-7 h-7 flex items-center justify-center bg-red-50 text-red-500 rounded-full font-bold text-xs">✕</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            document.getElementById('cart-total').innerText = total + ".-";
+            document.getElementById('qr-total-text').innerText = total.toFixed(2) + " บาท";
+            document.getElementById('dynamic-qr').src = `https://promptpay.io/${PP_ID}/${total}.png`;
+        }
+
+        function removeFromCart(i) {
+            cart.splice(i, 1);
+            if (cart.length === 0) document.getElementById('cart-section').classList.add('hidden');
+            renderCart();
+        }
+
+        async function confirmOrder() {
+            const name = document.getElementById('custName').value.trim();
+            const file = document.getElementById('slipInput').files[0];
+            
+            if (!name) return alert("กรุณาระบุชื่อของคุณก่อนสั่งซื้อ");
+            if (cart.length === 0) return alert("กรุณาเลือกเมนูอย่างน้อย 1 รายการ");
+            if (!file) return alert("กรุณาแนบสลิปเพื่อยืนยันออเดอร์");
+            
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true;
+            btn.innerHTML = `<span class="inline-block animate-spin mr-2">⏳</span> กำลังส่งออเดอร์...`;
+
+            try {
+                const storagePath = `slips/${Date.now()}_${name}.jpg`;
+                const storageRef = storage.ref(storagePath);
+                await storageRef.put(file);
+                const slipUrl = await storageRef.getDownloadURL();
+
+                db.ref('last_p_queue').transaction((current) => (current || 0) + 1, (err, comm, snap) => {
+                    const qNo = snap.val();
+                    const total = cart.reduce((s, t) => s + t.price, 0);
+                    
+                    const data = { 
+                        queueNo: qNo, 
+                        customerName: name, 
+                        items: cart, 
+                        totalPrice: total, 
+                        status: 'รอดำเนินการ', 
+                        type: 'pre-order', 
+                        payment: 'พร้อมเพย์',
+                        slipUrl: slipUrl, 
+                        storagePath: storagePath,
+                        time: new Date().toLocaleTimeString('th-TH'), 
+                        prefix: 'P' 
+                    };
+
+                    db.ref('orders').push(data).then(() => {
+                        document.getElementById('display-id').innerText = `P${String(qNo).padStart(3, '0')}`;
+                        document.getElementById('display-items').innerHTML = cart.map(i => `
+                            <div class="flex justify-between border-b border-slate-50 pb-2 mb-2 last:border-0">
+                                <span><b>${i.drink}</b> <br><small class="text-[9px] uppercase tracking-widest">+ ${i.toppings.join(', ') || 'ORIGINAL'}</small></span>
+                                <b class="text-slate-800">${i.price}.-</b>
+                            </div>
+                        `).join('');
+                        document.getElementById('display-total').innerText = total + ".-";
+                        
+                        // ซ่อนฟอร์มและปุ่ม X ด้านบนเมื่อสั่งเสร็จ
+                        document.getElementById('nav-header').classList.add('hidden');
+                        document.getElementById('order-form').classList.add('hidden');
+                        document.getElementById('queue-ticket').classList.remove('hidden');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    });
+                });
+            } catch (error) {
+                console.error(error);
+                alert("เกิดข้อผิดพลาดในการส่งออเดอร์ กรุณาลองใหม่อีกครั้ง");
+                btn.disabled = false;
+                btn.innerText = "ยืนยันการสั่งซื้อ";
+            }
+        }
+    </script>
+</body>
+</html>
