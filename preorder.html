@@ -8,6 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;800&display=swap');
         body { 
@@ -27,7 +28,6 @@
 <body class="py-8 px-4 md:py-12">
 
     <div class="max-w-md mx-auto relative">
-        
         <div id="nav-header" class="flex justify-between items-center mb-6">
             <a href="index.html" class="w-10 h-10 bg-white rounded-full shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 active:scale-90 transition-all">
                 ✕
@@ -153,6 +153,7 @@
     </div>
 
     <script>
+        // --- Firebase Config ---
         const firebaseConfig = { 
             apiKey: "AIzaSyAvEPPZeDB60O0mpGhxKEKQXlzyDgUdl1Q", 
             authDomain: "ovanlo-store.firebaseapp.com", 
@@ -166,6 +167,11 @@
         const db = firebase.database();
         const storage = firebase.storage();
 
+        // --- Core Variables ---
+        let cart = []; 
+        let currentDrink = "";
+        const PP_ID = "0944376023";
+
         // ระบบตรวจสอบสถานะร้าน
         db.ref('system_status/preorder_open').on('value', (snap) => {
             const isOpen = snap.val() !== false;
@@ -176,7 +182,7 @@
             if(!isOpen) {
                 form.classList.add('hidden');
                 closedMsg.classList.remove('hidden');
-                navHeader.classList.remove('hidden'); // ยังแสดงปุ่ม X เพื่อให้กลับหน้าหลักได้
+                navHeader.classList.remove('hidden');
             } else {
                 closedMsg.classList.add('hidden');
                 if(document.getElementById('queue-ticket').classList.contains('hidden')) {
@@ -186,10 +192,7 @@
             }
         });
 
-        let cart = []; 
-        let currentDrink = "";
-        const PP_ID = "0944376023";
-
+        // --- Logic Functions ---
         function openToppingModal(drink) { 
             currentDrink = drink; 
             document.getElementById('modal-title').innerText = drink; 
@@ -239,6 +242,7 @@
             renderCart();
         }
 
+        // --- Optimized Image Compression & Upload ---
         async function confirmOrder() {
             const name = document.getElementById('custName').value.trim();
             const file = document.getElementById('slipInput').files[0];
@@ -252,11 +256,24 @@
             btn.innerHTML = `<span class="inline-block animate-spin mr-2">⏳</span> กำลังส่งออเดอร์...`;
 
             try {
+                // 1. การบีบอัดรูปภาพก่อนอัปโหลด (ทำให้การส่งเร็วขึ้นมาก)
+                const options = {
+                    maxSizeMB: 0.2,            // บีบให้เหลือไม่เกิน 200KB
+                    maxWidthOrHeight: 1000,    // ขนาดไม่เกิน 1000px
+                    useWebWorker: true
+                };
+
+                btn.innerHTML = `<span class="inline-block animate-spin mr-2">⚙️</span> กำลังบีบอัดภาพสลิป...`;
+                const compressedFile = await imageCompression(file, options);
+                
+                // 2. อัปโหลดขึ้น Firebase Storage
+                btn.innerHTML = `<span class="inline-block animate-spin mr-2">🚀</span> กำลังส่งข้อมูล...`;
                 const storagePath = `slips/${Date.now()}_${name}.jpg`;
                 const storageRef = storage.ref(storagePath);
-                await storageRef.put(file);
+                await storageRef.put(compressedFile);
                 const slipUrl = await storageRef.getDownloadURL();
 
+                // 3. บันทึกข้อมูลลง Database
                 db.ref('last_p_queue').transaction((current) => (current || 0) + 1, (err, comm, snap) => {
                     const qNo = snap.val();
                     const total = cart.reduce((s, t) => s + t.price, 0);
@@ -285,7 +302,6 @@
                         `).join('');
                         document.getElementById('display-total').innerText = total + ".-";
                         
-                        // ซ่อนฟอร์มและปุ่ม X ด้านบนเมื่อสั่งเสร็จ
                         document.getElementById('nav-header').classList.add('hidden');
                         document.getElementById('order-form').classList.add('hidden');
                         document.getElementById('queue-ticket').classList.remove('hidden');
@@ -294,7 +310,7 @@
                 });
             } catch (error) {
                 console.error(error);
-                alert("เกิดข้อผิดพลาดในการส่งออเดอร์ กรุณาลองใหม่อีกครั้ง");
+                alert("การส่งออเดอร์ล้มเหลว: " + error.message);
                 btn.disabled = false;
                 btn.innerText = "ยืนยันการสั่งซื้อ";
             }
