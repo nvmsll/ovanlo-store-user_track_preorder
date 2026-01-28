@@ -242,39 +242,54 @@
             renderCart();
         }
 
-        // --- Optimized Image Compression & Upload ---
+        // --- Improved Confirm Order Function ---
         async function confirmOrder() {
             const name = document.getElementById('custName').value.trim();
             const file = document.getElementById('slipInput').files[0];
+            const btn = document.getElementById('btn-submit');
             
             if (!name) return alert("กรุณาระบุชื่อของคุณก่อนสั่งซื้อ");
             if (cart.length === 0) return alert("กรุณาเลือกเมนูอย่างน้อย 1 รายการ");
             if (!file) return alert("กรุณาแนบสลิปเพื่อยืนยันออเดอร์");
             
-            const btn = document.getElementById('btn-submit');
             btn.disabled = true;
             btn.innerHTML = `<span class="inline-block animate-spin mr-2">⏳</span> กำลังส่งออเดอร์...`;
 
             try {
-                // 1. การบีบอัดรูปภาพก่อนอัปโหลด (ทำให้การส่งเร็วขึ้นมาก)
-                const options = {
-                    maxSizeMB: 0.2,            // บีบให้เหลือไม่เกิน 200KB
-                    maxWidthOrHeight: 1000,    // ขนาดไม่เกิน 1000px
-                    useWebWorker: true
-                };
+                let finalFile = file;
 
-                btn.innerHTML = `<span class="inline-block animate-spin mr-2">⚙️</span> กำลังบีบอัดภาพสลิป...`;
-                const compressedFile = await imageCompression(file, options);
-                
+                // 1. ตรวจสอบการโหลด Library บีบอัดภาพ
+                if (typeof imageCompression !== 'undefined') {
+                    btn.innerHTML = `<span class="inline-block animate-spin mr-2">⚙️</span> กำลังบีบอัดภาพ...`;
+                    const options = {
+                        maxSizeMB: 0.2,
+                        maxWidthOrHeight: 1024,
+                        useWebWorker: true
+                    };
+                    try {
+                        finalFile = await imageCompression(file, options);
+                    } catch (e) {
+                        console.warn("Compression failed, using original file", e);
+                    }
+                }
+
                 // 2. อัปโหลดขึ้น Firebase Storage
-                btn.innerHTML = `<span class="inline-block animate-spin mr-2">🚀</span> กำลังส่งข้อมูล...`;
+                btn.innerHTML = `<span class="inline-block animate-spin mr-2">🚀</span> กำลังอัปโหลดสลิป...`;
                 const storagePath = `slips/${Date.now()}_${name}.jpg`;
                 const storageRef = storage.ref(storagePath);
-                await storageRef.put(compressedFile);
-                const slipUrl = await storageRef.getDownloadURL();
+                
+                // ใช้ uploadTask เพื่อติดตามความคืบหน้า (เสถียรกว่า .put ตรงๆ)
+                const snapshot = await storageRef.put(finalFile);
+                const slipUrl = await snapshot.ref.getDownloadURL();
 
-                // 3. บันทึกข้อมูลลง Database
-                db.ref('last_p_queue').transaction((current) => (current || 0) + 1, (err, comm, snap) => {
+                // 3. จัดการลำดับคิวและบันทึกข้อมูล
+                btn.innerHTML = `<span class="inline-block animate-spin mr-2">📝</span> กำลังออกหมายเลขคิว...`;
+                
+                db.ref('last_p_queue').transaction((current) => {
+                    return (current || 0) + 1;
+                }, (error, committed, snap) => {
+                    if (error) throw error;
+                    
                     const qNo = snap.val();
                     const total = cart.reduce((s, t) => s + t.price, 0);
                     
@@ -289,10 +304,12 @@
                         slipUrl: slipUrl, 
                         storagePath: storagePath,
                         time: new Date().toLocaleTimeString('th-TH'), 
-                        prefix: 'P' 
+                        prefix: 'P',
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
                     };
 
                     db.ref('orders').push(data).then(() => {
+                        // แสดงผลบัตรคิว
                         document.getElementById('display-id').innerText = `P${String(qNo).padStart(3, '0')}`;
                         document.getElementById('display-items').innerHTML = cart.map(i => `
                             <div class="flex justify-between border-b border-slate-50 pb-2 mb-2 last:border-0">
@@ -306,13 +323,16 @@
                         document.getElementById('order-form').classList.add('hidden');
                         document.getElementById('queue-ticket').classList.remove('hidden');
                         window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }).catch(err => {
+                        throw err;
                     });
                 });
+
             } catch (error) {
-                console.error(error);
-                alert("การส่งออเดอร์ล้มเหลว: " + error.message);
+                console.error("Order Error:", error);
+                alert("เกิดข้อผิดพลาด: " + (error.message || "การเชื่อมต่อล้มเหลว"));
                 btn.disabled = false;
-                btn.innerText = "ยืนยันการสั่งซื้อ";
+                btn.innerHTML = "ยืนยันการสั่งซื้อ";
             }
         }
     </script>
