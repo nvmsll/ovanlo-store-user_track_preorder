@@ -172,7 +172,7 @@
         let currentDrink = "";
         const PP_ID = "0944376023";
 
-        // ระบบตรวจสอบสถานะร้าน
+        // ตรวจสอบสถานะร้าน
         db.ref('system_status/preorder_open').on('value', (snap) => {
             const isOpen = snap.val() !== false;
             const form = document.getElementById('order-form');
@@ -182,17 +182,15 @@
             if(!isOpen) {
                 form.classList.add('hidden');
                 closedMsg.classList.remove('hidden');
-                navHeader.classList.remove('hidden');
             } else {
                 closedMsg.classList.add('hidden');
                 if(document.getElementById('queue-ticket').classList.contains('hidden')) {
                     form.classList.remove('hidden');
-                    navHeader.classList.remove('hidden');
                 }
             }
         });
 
-        // --- Logic Functions ---
+        // --- UI Functions ---
         function openToppingModal(drink) { 
             currentDrink = drink; 
             document.getElementById('modal-title').innerText = drink; 
@@ -242,10 +240,12 @@
             renderCart();
         }
 
-        // --- Optimized Image Compression & Upload ---
+        // --- ฟังก์ชันยืนยันออเดอร์ (แก้ไขส่วน Error undefined) ---
         async function confirmOrder() {
-            const name = document.getElementById('custName').value.trim();
-            const file = document.getElementById('slipInput').files[0];
+            const nameField = document.getElementById('custName');
+            const name = nameField.value.trim();
+            const fileInput = document.getElementById('slipInput');
+            const file = fileInput.files[0];
             
             if (!name) return alert("กรุณาระบุชื่อของคุณก่อนสั่งซื้อ");
             if (cart.length === 0) return alert("กรุณาเลือกเมนูอย่างน้อย 1 รายการ");
@@ -255,29 +255,42 @@
             btn.disabled = true;
             btn.innerHTML = `<span class="inline-block animate-spin mr-2">⏳</span> กำลังส่งออเดอร์...`;
 
+            let fileToUpload = file;
+
             try {
-                // 1. การบีบอัดรูปภาพก่อนอัปโหลด (ทำให้การส่งเร็วขึ้นมาก)
-                const options = {
-                    maxSizeMB: 0.2,            // บีบให้เหลือไม่เกิน 200KB
-                    maxWidthOrHeight: 1000,    // ขนาดไม่เกิน 1000px
-                    useWebWorker: true
-                };
+                // 1. บีบอัดรูปภาพ
+                try {
+                    if (typeof imageCompression !== 'undefined') {
+                        btn.innerHTML = `<span class="inline-block animate-spin mr-2">⚙️</span> กำลังบีบอัดภาพ...`;
+                        const options = { maxSizeMB: 0.2, maxWidthOrHeight: 1000, useWebWorker: true };
+                        fileToUpload = await imageCompression(file, options);
+                    }
+                } catch (compError) {
+                    console.warn("บีบอัดภาพไม่สำเร็จ ใช้ไฟล์ต้นฉบับแทน");
+                    fileToUpload = file;
+                }
 
-                btn.innerHTML = `<span class="inline-block animate-spin mr-2">⚙️</span> กำลังบีบอัดภาพสลิป...`;
-                const compressedFile = await imageCompression(file, options);
-                
-                // 2. อัปโหลดขึ้น Firebase Storage
-                btn.innerHTML = `<span class="inline-block animate-spin mr-2">🚀</span> กำลังส่งข้อมูล...`;
-                const storagePath = `slips/${Date.now()}_${name}.jpg`;
+                // 2. อัปโหลดไป Firebase Storage
+                btn.innerHTML = `<span class="inline-block animate-spin mr-2">🚀</span> กำลังอัปโหลดสลิป...`;
+                const timestamp = Date.now();
+                const safeName = encodeURIComponent(name).replace(/%/g, "").substring(0, 10);
+                const storagePath = `slips/${timestamp}_${safeName}.jpg`;
                 const storageRef = storage.ref(storagePath);
-                await storageRef.put(compressedFile);
-                const slipUrl = await storageRef.getDownloadURL();
 
-                // 3. บันทึกข้อมูลลง Database
+                const uploadTask = await storageRef.put(fileToUpload);
+                const slipUrl = await uploadTask.ref.getDownloadURL();
+
+                // 3. บันทึกลง Realtime Database
+                btn.innerHTML = `<span class="inline-block animate-spin mr-2">📝</span> กำลังบันทึกข้อมูล...`;
+                
                 db.ref('last_p_queue').transaction((current) => (current || 0) + 1, (err, comm, snap) => {
+                    if (err) {
+                        alert("Transaction Error: " + err.message);
+                        throw err;
+                    }
+                    
                     const qNo = snap.val();
                     const total = cart.reduce((s, t) => s + t.price, 0);
-                    
                     const data = { 
                         queueNo: qNo, 
                         customerName: name, 
@@ -293,6 +306,7 @@
                     };
 
                     db.ref('orders').push(data).then(() => {
+                        // แสดงหน้าคิวสำเร็จ
                         document.getElementById('display-id').innerText = `P${String(qNo).padStart(3, '0')}`;
                         document.getElementById('display-items').innerHTML = cart.map(i => `
                             <div class="flex justify-between border-b border-slate-50 pb-2 mb-2 last:border-0">
@@ -306,11 +320,18 @@
                         document.getElementById('order-form').classList.add('hidden');
                         document.getElementById('queue-ticket').classList.remove('hidden');
                         window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }).catch(dbErr => {
+                        alert("Database Error: " + dbErr.message);
+                        btn.disabled = false;
+                        btn.innerText = "ยืนยันการสั่งซื้อ";
                     });
                 });
+
             } catch (error) {
-                console.error(error);
-                alert("การส่งออเดอร์ล้มเหลว: " + error.message);
+                console.error("Full Error:", error);
+                // แก้ปัญหา undefined โดยการตรวจสอบว่ามี message หรือไม่
+                const errorMsg = error.message || error.code || "ไม่สามารถเชื่อมต่อ Firebase Storage ได้ (ตรวจสอบ Rules)";
+                alert("เกิดข้อผิดพลาด: " + errorMsg);
                 btn.disabled = false;
                 btn.innerText = "ยืนยันการสั่งซื้อ";
             }
