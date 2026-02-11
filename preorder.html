@@ -79,10 +79,21 @@
                     <div class="bg-slate-50 p-6 rounded-[2rem] text-center border border-slate-100">
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">สแกนจ่ายผ่าน QR Code</p>
                         <img id="dynamic-qr" class="w-44 h-44 mx-auto rounded-2xl shadow-sm border border-white bg-white mb-3" src="">
-                        <p class="text-2xl font-black text-slate-800" id="qr-total-text">0.00 บาท</p>
-                        <div class="mt-6 text-left bg-white p-4 rounded-2xl border border-slate-100">
+                        <p class="text-2xl font-black text-slate-800 mb-1" id="qr-total-text">0.00 บาท</p>
+                        
+                        <div class="mb-4">
+                            <p class="text-[11px] font-bold text-slate-500">ชื่อ บช. นางสาวชนัดดา น้อยสนธิ</p>
+                            <div class="flex items-center justify-center gap-2 mt-1">
+                                <span id="pp-number" class="text-sm font-black text-blue-600 tracking-wider">065-238-5517</span>
+                                <button onclick="copyToClipboard('0652385517')" class="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[9px] font-bold text-slate-400 hover:text-blue-500 active:scale-90 transition-all shadow-sm">
+                                    คัดลอกเบอร์
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 text-left bg-white p-4 rounded-2xl border border-slate-100 relative">
                             <label class="text-[9px] font-black text-red-500 uppercase block mb-2 leading-none italic">แนบสลิปเพื่อยืนยันออเดอร์</label>
-                            <input type="file" id="slipInput" accept="image/*" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-slate-900 file:text-white transition cursor-pointer">
+                            <input type="file" id="slipInput" accept="image/*" class="relative z-10 w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:bg-slate-900 file:text-white transition cursor-pointer">
                         </div>
                     </div>
                     <div class="pt-2">
@@ -153,7 +164,6 @@
     </div>
 
     <script>
-        // --- Firebase Config ---
         const firebaseConfig = { 
             apiKey: "AIzaSyAvEPPZeDB60O0mpGhxKEKQXlzyDgUdl1Q", 
             authDomain: "ovanlo-store.firebaseapp.com", 
@@ -167,12 +177,10 @@
         const db = firebase.database();
         const storage = firebase.storage();
 
-        // --- Core Variables ---
         let cart = []; 
         let currentDrink = "";
-        const PP_ID = "0652385517";
+        const PP_ID = "0652385517"; // เบอร์พร้อมเพย์
 
-        // ระบบตรวจสอบสถานะร้าน
         db.ref('system_status/preorder_open').on('value', (snap) => {
             const isOpen = snap.val() !== false;
             const form = document.getElementById('order-form');
@@ -192,7 +200,15 @@
             }
         });
 
-        // --- Logic Functions ---
+        // ฟังก์ชันคัดลอกเบอร์โทรศัพท์
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert("คัดลอกเบอร์โทรศัพท์สำเร็จ!");
+            }).catch(err => {
+                console.error("Copy failed", err);
+            });
+        }
+
         function openToppingModal(drink) { 
             currentDrink = drink; 
             document.getElementById('modal-title').innerText = drink; 
@@ -242,7 +258,6 @@
             renderCart();
         }
 
-        // --- Improved Confirm Order Function ---
         async function confirmOrder() {
             const name = document.getElementById('custName').value.trim();
             const file = document.getElementById('slipInput').files[0];
@@ -258,36 +273,30 @@
             try {
                 let finalFile = file;
 
-                // 1. ตรวจสอบการโหลด Library บีบอัดภาพ
-                if (typeof imageCompression !== 'undefined') {
-                    btn.innerHTML = `<span class="inline-block animate-spin mr-2">⚙️</span> กำลังบีบอัดภาพ...`;
+                if (window.imageCompression) {
+                    btn.innerHTML = `<span class="inline-block animate-spin mr-2">⚙️</span> กำลังย่อขนาดภาพ...`;
                     const options = {
-                        maxSizeMB: 0.2,
-                        maxWidthOrHeight: 1024,
+                        maxSizeMB: 0.15,
+                        maxWidthOrHeight: 800,
                         useWebWorker: true
                     };
                     try {
-                        finalFile = await imageCompression(file, options);
+                        finalFile = await window.imageCompression(file, options);
                     } catch (e) {
-                        console.warn("Compression failed, using original file", e);
+                        console.warn("Compression failed", e);
                     }
                 }
 
-                // 2. อัปโหลดขึ้น Firebase Storage
-                btn.innerHTML = `<span class="inline-block animate-spin mr-2">🚀</span> กำลังอัปโหลดสลิป...`;
-                const storagePath = `slips/${Date.now()}_${name}.jpg`;
+                btn.innerHTML = `<span class="inline-block animate-spin mr-2">🚀</span> กำลังส่งไฟล์...`;
+                const storagePath = `slips/${Date.now()}_${name.substring(0,5)}.jpg`;
                 const storageRef = storage.ref(storagePath);
                 
-                // ใช้ uploadTask เพื่อติดตามความคืบหน้า (เสถียรกว่า .put ตรงๆ)
                 const snapshot = await storageRef.put(finalFile);
                 const slipUrl = await snapshot.ref.getDownloadURL();
 
-                // 3. จัดการลำดับคิวและบันทึกข้อมูล
-                btn.innerHTML = `<span class="inline-block animate-spin mr-2">📝</span> กำลังออกหมายเลขคิว...`;
+                btn.innerHTML = `<span class="inline-block animate-spin mr-2">📝</span> กำลังจองคิว...`;
                 
-                db.ref('last_p_queue').transaction((current) => {
-                    return (current || 0) + 1;
-                }, (error, committed, snap) => {
+                db.ref('last_p_queue').transaction((current) => (current || 0) + 1, (error, committed, snap) => {
                     if (error) throw error;
                     
                     const qNo = snap.val();
@@ -309,7 +318,6 @@
                     };
 
                     db.ref('orders').push(data).then(() => {
-                        // แสดงผลบัตรคิว
                         document.getElementById('display-id').innerText = `P${String(qNo).padStart(3, '0')}`;
                         document.getElementById('display-items').innerHTML = cart.map(i => `
                             <div class="flex justify-between border-b border-slate-50 pb-2 mb-2 last:border-0">
@@ -323,8 +331,6 @@
                         document.getElementById('order-form').classList.add('hidden');
                         document.getElementById('queue-ticket').classList.remove('hidden');
                         window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }).catch(err => {
-                        throw err;
                     });
                 });
 
@@ -338,4 +344,3 @@
     </script>
 </body>
 </html>
-
