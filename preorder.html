@@ -163,6 +163,15 @@
         </div>
     </div>
 
+    <div id="custom-alert" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-[100]">
+        <div class="bg-white w-full max-w-xs rounded-[2.5rem] p-8 text-center shadow-2xl animate-in zoom-in duration-300">
+            <div id="alert-icon" class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">ℹ️</div>
+            <h3 id="alert-title" class="text-xl font-black text-slate-800 mb-2">แจ้งเตือน</h3>
+            <p id="alert-desc" class="text-sm text-slate-500 mb-6"></p>
+            <button onclick="closeCustomAlert()" class="w-full py-4 minimal-gradient text-white rounded-2xl font-bold shadow-lg shadow-blue-500/30 active:scale-95 transition-all">ตกลง เข้าใจแล้ว</button>
+        </div>
+    </div>
+
     <script>
         const firebaseConfig = { 
             apiKey: "AIzaSyAvEPPZeDB60O0mpGhxKEKQXlzyDgUdl1Q", 
@@ -179,33 +188,39 @@
 
         let cart = []; 
         let currentDrink = "";
-        const PP_ID = "0652385517"; // เบอร์พร้อมเพย์
+        let hasShownFirstCupAlert = false; 
+        const PP_ID = "0652385517"; 
+
+        // ฟังก์ชันสั่งแสดงผล Custom Alert
+        function showAlert(title, desc, icon = "ℹ️") {
+            document.getElementById('alert-title').innerText = title;
+            document.getElementById('alert-desc').innerHTML = desc;
+            document.getElementById('alert-icon').innerText = icon;
+            document.getElementById('custom-alert').classList.remove('hidden');
+        }
+
+        function closeCustomAlert() {
+            document.getElementById('custom-alert').classList.add('hidden');
+        }
 
         db.ref('system_status/preorder_open').on('value', (snap) => {
             const isOpen = snap.val() !== false;
             const form = document.getElementById('order-form');
             const closedMsg = document.getElementById('system-closed-msg');
-            const navHeader = document.getElementById('nav-header');
-            
             if(!isOpen) {
                 form.classList.add('hidden');
                 closedMsg.classList.remove('hidden');
-                navHeader.classList.remove('hidden');
             } else {
                 closedMsg.classList.add('hidden');
                 if(document.getElementById('queue-ticket').classList.contains('hidden')) {
                     form.classList.remove('hidden');
-                    navHeader.classList.remove('hidden');
                 }
             }
         });
 
-        // ฟังก์ชันคัดลอกเบอร์โทรศัพท์
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
-                alert("คัดลอกเบอร์โทรศัพท์สำเร็จ!");
-            }).catch(err => {
-                console.error("Copy failed", err);
+                showAlert("คัดลอกสำเร็จ", "เบอร์โทรศัพท์ถูกคัดลอกลงคลิปบอร์ดแล้ว", "📋");
             });
         }
 
@@ -225,14 +240,21 @@
             let tList = []; let tPrice = 0;
             tops.forEach(e => { tList.push(e.value); tPrice += parseInt(e.dataset.price); });
             cart.push({ drink: currentDrink, toppings: tList, price: 30 + tPrice });
-            renderCart(); closeModal();
+            renderCart(); 
+            closeModal();
+
+            if (!hasShownFirstCupAlert) {
+                setTimeout(() => {
+                    showAlert("เกือบลืม!", "อย่าลืมตรวจสอบรายการ และ<br><b class='text-blue-600'>กดยืนยันการสั่งซื้อ</b>ด้านล่างด้วยนะครับ");
+                    hasShownFirstCupAlert = true;
+                }, 400);
+            }
         }
 
         function renderCart() {
             const list = document.getElementById('cart-list'); 
             const section = document.getElementById('cart-section');
             const total = cart.reduce((s, t) => s + t.price, 0);
-
             if (cart.length > 0) section.classList.remove('hidden');
             list.innerHTML = cart.map((item, i) => `
                 <div class="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
@@ -246,7 +268,6 @@
                     </div>
                 </div>
             `).join('');
-            
             document.getElementById('cart-total').innerText = total + ".-";
             document.getElementById('qr-total-text').innerText = total.toFixed(2) + " บาท";
             document.getElementById('dynamic-qr').src = `https://promptpay.io/${PP_ID}/${total}.png`;
@@ -254,7 +275,10 @@
 
         function removeFromCart(i) {
             cart.splice(i, 1);
-            if (cart.length === 0) document.getElementById('cart-section').classList.add('hidden');
+            if (cart.length === 0) {
+                document.getElementById('cart-section').classList.add('hidden');
+                hasShownFirstCupAlert = false;
+            }
             renderCart();
         }
 
@@ -263,80 +287,54 @@
             const file = document.getElementById('slipInput').files[0];
             const btn = document.getElementById('btn-submit');
             
-            if (!name) return alert("กรุณาระบุชื่อของคุณก่อนสั่งซื้อ");
-            if (cart.length === 0) return alert("กรุณาเลือกเมนูอย่างน้อย 1 รายการ");
-            if (!file) return alert("กรุณาแนบสลิปเพื่อยืนยันออเดอร์");
+            // --- เปลี่ยน alert ตรงนี้เป็น Custom Modal ---
+            if (!name) return showAlert("ระบุชื่อ", "กรุณาระบุชื่อเล่นของคุณเพื่อให้แอดมินเรียกคิวได้ถูกต้องครับ", "✏️");
+            if (cart.length === 0) return showAlert("ตะกร้าว่าง", "กรุณาเลือกเมนูเครื่องดื่มอย่างน้อย 1 รายการครับ", "🥤");
+            if (!file) return showAlert("แนบหลักฐาน", "กรุณาแนบภาพสลิปเพื่อยืนยันการชำระเงินครับ", "📸");
             
             btn.disabled = true;
             btn.innerHTML = `<span class="inline-block animate-spin mr-2">⏳</span> กำลังส่งออเดอร์...`;
 
             try {
                 let finalFile = file;
-
                 if (window.imageCompression) {
-                    btn.innerHTML = `<span class="inline-block animate-spin mr-2">⚙️</span> กำลังย่อขนาดภาพ...`;
-                    const options = {
-                        maxSizeMB: 0.15,
-                        maxWidthOrHeight: 800,
-                        useWebWorker: true
-                    };
-                    try {
-                        finalFile = await window.imageCompression(file, options);
-                    } catch (e) {
-                        console.warn("Compression failed", e);
-                    }
+                    const options = { maxSizeMB: 0.15, maxWidthOrHeight: 800, useWebWorker: true };
+                    try { finalFile = await window.imageCompression(file, options); } catch (e) {}
                 }
 
-                btn.innerHTML = `<span class="inline-block animate-spin mr-2">🚀</span> กำลังส่งไฟล์...`;
                 const storagePath = `slips/${Date.now()}_${name.substring(0,5)}.jpg`;
                 const storageRef = storage.ref(storagePath);
-                
                 const snapshot = await storageRef.put(finalFile);
                 const slipUrl = await snapshot.ref.getDownloadURL();
 
-                btn.innerHTML = `<span class="inline-block animate-spin mr-2">📝</span> กำลังจองคิว...`;
-                
                 db.ref('last_p_queue').transaction((current) => (current || 0) + 1, (error, committed, snap) => {
-                    if (error) throw error;
-                    
                     const qNo = snap.val();
                     const total = cart.reduce((s, t) => s + t.price, 0);
-                    
                     const data = { 
-                        queueNo: qNo, 
-                        customerName: name, 
-                        items: cart, 
-                        totalPrice: total, 
-                        status: 'รอดำเนินการ', 
-                        type: 'pre-order', 
-                        payment: 'พร้อมเพย์',
-                        slipUrl: slipUrl, 
-                        storagePath: storagePath,
-                        time: new Date().toLocaleTimeString('th-TH'), 
-                        prefix: 'P',
+                        queueNo: qNo, customerName: name, items: cart, totalPrice: total, 
+                        status: 'รอดำเนินการ', type: 'pre-order', payment: 'พร้อมเพย์',
+                        slipUrl: slipUrl, storagePath: storagePath,
+                        time: new Date().toLocaleTimeString('th-TH'), prefix: 'P',
                         timestamp: firebase.database.ServerValue.TIMESTAMP
                     };
 
                     db.ref('orders').push(data).then(() => {
                         document.getElementById('display-id').innerText = `P${String(qNo).padStart(3, '0')}`;
                         document.getElementById('display-items').innerHTML = cart.map(i => `
-                            <div class="flex justify-between border-b border-slate-50 pb-2 mb-2 last:border-0">
+                            <div class="flex justify-between border-b border-slate-50 pb-2 last:border-0 mb-2">
                                 <span><b>${i.drink}</b> <br><small class="text-[9px] uppercase tracking-widest">+ ${i.toppings.join(', ') || 'ORIGINAL'}</small></span>
                                 <b class="text-slate-800">${i.price}.-</b>
                             </div>
                         `).join('');
                         document.getElementById('display-total').innerText = total + ".-";
-                        
                         document.getElementById('nav-header').classList.add('hidden');
                         document.getElementById('order-form').classList.add('hidden');
                         document.getElementById('queue-ticket').classList.remove('hidden');
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                     });
                 });
-
             } catch (error) {
-                console.error("Order Error:", error);
-                alert("เกิดข้อผิดพลาด: " + (error.message || "การเชื่อมต่อล้มเหลว"));
+                showAlert("ผิดพลาด", "การส่งออเดอร์ล้มเหลว กรุณาลองใหม่อีกครั้ง: " + error.message, "❌");
                 btn.disabled = false;
                 btn.innerHTML = "ยืนยันการสั่งซื้อ";
             }
